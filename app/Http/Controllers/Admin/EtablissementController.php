@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Etablissement;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use App\Models\Classe;
+use App\Models\Cours;
+use App\Models\Salle;
+use App\Models\User;
 
 class EtablissementController extends Controller
 {
@@ -56,8 +60,8 @@ class EtablissementController extends Controller
                 'unique:etablissements,code_etablissement',
             ],
             'nom' => ['required', 'string', 'max:255'],
-            'type' => ['nullable', 'string', 'max:100'],
-            'statut' => ['nullable', 'string', 'max:100'],
+            'type' => ['required', 'string', 'max:100', 'in:public,prive,confessionnel,autre'],
+            'statut' => ['required', 'string', 'max:100', 'in:actif,inactif'],
             'enseignement' => ['nullable', 'string', 'max:100'],
             'adresse' => ['nullable', 'string', 'max:255'],
             'ville' => ['nullable', 'string', 'max:100'],
@@ -108,8 +112,8 @@ class EtablissementController extends Controller
                     ->ignore($etablissement->id),
             ],
             'nom' => ['required', 'string', 'max:255'],
-            'type' => ['nullable', 'string', 'max:100'],
-            'statut' => ['nullable', 'string', 'max:100'],
+            'type' => ['required', 'string', 'max:100', 'in:public,prive,confessionnel,autre'],
+            'statut' => ['required', 'string', 'max:100', 'in:actif,inactif'],
             'enseignement' => ['nullable', 'string', 'max:100'],
             'adresse' => ['nullable', 'string', 'max:255'],
             'ville' => ['nullable', 'string', 'max:100'],
@@ -135,10 +139,26 @@ class EtablissementController extends Controller
      */
     public function destroy(Etablissement $etablissement)
     {
+        $users = User::where('etablissement_id', $etablissement->id)->count();
+        $salles = Salle::where('etablissement_id', $etablissement->id)->count();
+        $classes = Classe::where('etablissement_id', $etablissement->id)->count();
+        $cours = Cours::where('etablissement_id', $etablissement->id)->count();
+
+        if ($users > 0 || $salles > 0 || $classes > 0 || $cours > 0) {
+            return redirect()
+                ->route('admin.etablissements.index')
+                ->with(
+                    'error',
+                    "Impossible de supprimer cet établissement car il contient encore des données associées."
+                );
+        }
+
+        $nom = $etablissement->nom;
+
         $etablissement->delete();
 
         return redirect()
             ->route('admin.etablissements.index')
-            ->with('success', 'Établissement supprimé avec succès.');
+            ->with('success', "L'établissement « {$nom} » a été supprimé avec succès.");
     }
 }
